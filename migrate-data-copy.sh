@@ -34,7 +34,7 @@ while IFS= read -r path || [[ -n "$path" ]]; do
     continue
   fi
 
-  ((count++))
+  ((count++)) || true
   [[ $((count % 200)) -eq 0 ]] && echo "  Copied $count from prod..."
 done < ergo-incore-paths.txt
 
