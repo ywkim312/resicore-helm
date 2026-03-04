@@ -1,6 +1,9 @@
 #!/bin/bash
 # Migrate ergo/incore data files from incore-prod to microk8s
 # Run from tmp/ with: bash ../migrate-data-copy.sh
+#
+# Phase 1: Copy prod -> local (per path)
+# Phase 2: Tar local, copy single file to pod, extract (avoids per-path kubectl cp to pod issues)
 
 set -e
 PROD_POD=$(kubectl get pods -n incore --context incore-prod -l app.kubernetes.io/name=incore-svc-data -o jsonpath='{.items[0].metadata.name}')
@@ -14,10 +17,10 @@ mkdir -p migration-data/data
 count=0
 fail=0
 
+echo "Phase 1: Copying from incore-prod to local..."
 while IFS= read -r path || [[ -n "$path" ]]; do
   path=$(echo "$path" | tr -d '\r')
   [[ -z "$path" ]] && continue
-  # Strip leading /home/incore/data/ if present (some dataURLs have full path)
   path="${path#/home/incore/data/}"
   [[ -z "$path" ]] && continue
 
@@ -25,25 +28,31 @@ while IFS= read -r path || [[ -n "$path" ]]; do
   dir_name=$(basename "$path")
   mkdir -p "migration-data/data/$parent_dir"
 
-  # Copy from prod: source is the directory, dest is parent so we get dir_name inside
   if ! kubectl cp "incore/${PROD_POD}:/home/incore/data/${path}" "migration-data/data/${parent_dir}/" --context incore-prod 2>/dev/null; then
     echo "FAIL prod: $path"
     ((fail++)) || true
     continue
   fi
 
-  # Copy to microk8s: we have migration-data/data/parent_dir/dir_name, copy that to pod
-  # kubectl cp with dir: copies dir into destination. We need /home/incore/data/parent_dir/dir_name on pod
-  if ! kubectl cp "migration-data/data/${parent_dir}/${dir_name}" "incore/${MICROK8S_POD}:/home/incore/data/${parent_dir}/" --context microk8s 2>/dev/null; then
-    echo "FAIL microk8s: $path"
-    ((fail++)) || true
-    continue
-  fi
-
   ((count++))
-  [[ $((count % 100)) -eq 0 ]] && echo "  Copied $count..."
+  [[ $((count % 200)) -eq 0 ]] && echo "  Copied $count from prod..."
 done < ergo-incore-paths.txt
 
-echo "Done. Copied $count paths, $fail failed."
+echo "Phase 1 done. Copied $count from prod, $fail failed."
+
 echo ""
-echo "Verify: kubectl exec -n incore deployment/incore-svc-data --context microk8s -- sh -c 'find /home/incore/data -type f | wc -l'"
+echo "Phase 2: Creating tar and copying to microk8s..."
+cd migration-data/data
+tar czf ../data.tar.gz .
+cd ..
+echo "  Tar created ($(du -h data.tar.gz | cut -f1))"
+
+echo "  Copying tar to pod..."
+kubectl cp migration-data/data.tar.gz "incore/${MICROK8S_POD}:/tmp/data.tar.gz" --context microk8s
+
+echo "  Extracting on pod..."
+kubectl exec -n incore "${MICROK8S_POD}" --context microk8s -- sh -c "cd /home/incore/data && tar xzf /tmp/data.tar.gz && rm /tmp/data.tar.gz"
+
+echo ""
+echo "Done. Verify with:"
+echo "  kubectl exec -n incore deployment/incore-svc-data --context microk8s -- sh -c 'find /home/incore/data -type f | wc -l'"
