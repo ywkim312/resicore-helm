@@ -1,8 +1,9 @@
 // Fix path mismatch: MongoDB dataURL uses subdir (e.g. 5c/64/5c64964fc11bb380da598adc/file.tif)
 // but files were migrated to parent dir (5c/64/file.tif). Creates symlinks so both paths work.
-// Output: shell script to run inside data pod
-// Usage: Get-Content fix-data-paths.js | kubectl exec -i incore-mongodb-0 -n incore --context microk8s -- mongosh "mongodb://root:ResicoreMongoAI2026$!@localhost:27017/admin" --quiet > fix-paths.sh
-// Then: kubectl cp fix-paths.sh incore/incore-svc-data-xxx:/tmp/ && kubectl exec ... sh /tmp/fix-paths.sh
+// Output: shell script - pipe to fix-paths.sh
+print('#!/bin/sh');
+print('set -e');
+print('cd /home/incore/data || exit 1');
 
 var datadb = db.getSiblingDB('datadb');
 var base = '/home/incore/data';
