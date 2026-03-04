@@ -35,6 +35,9 @@ spec:
             - name: {{ include "incore.name" . }}-config
               mountPath: /usr/share/nginx/html/config/config.json
               subPath: ga_key.json
+            - name: {{ include "incore.name" . }}-config
+              mountPath: /usr/share/nginx/html/config/auth_config.json
+              subPath: auth_config.json
           livenessProbe:
             httpGet:
               path: /

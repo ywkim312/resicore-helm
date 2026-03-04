@@ -9,3 +9,7 @@ data:
     {
       "GA_KEY": "{{- .Values.google_analytics }}"
     }
+  auth_config.json: |
+    {
+      "logoutUrl": {{ .Values.auth.logoutUrl | default "" | quote }}
+    }

@@ -404,40 +404,7 @@ svc_maestro:
     service:
       type: ClusterIP
       port: 8000
-  testbeds:
-    slc:
-      enabled: true
-      env:
-        host: incore-postgresql-hl
-        port: 5432
-        user: user
-        password: password
-        db_name: maestro_slc
-        prefix: /maestro/slc
-        workers: 2
-      replicas: 1
-    joplin:
-      enabled: true
-      env:
-        host: incore-postgresql-hl
-        port: 5432
-        user: user
-        password: password
-        db_name: maestro_joplin
-        prefix: /maestro/joplin
-        workers: 2
-      replicas: 1
-    galveston:
-      enabled: true
-      env:
-        host: incore-postgresql-hl
-        port: 5432
-        user: user
-        password: password
-        db_name: maestro_galveston
-        prefix: /maestro/galveston
-        workers: 2
-      replicas: 1
+  testbeds: {}
 
 # ----------------------------------------------------------------------
 # PLOTTING SERVICE CONFIGURATION
@@ -457,27 +424,9 @@ svc_plotting:
     size: 5Gi
 
 # ----------------------------------------------------------------------
-# PLAYBOOK CONFIGURATION
+# PLAYBOOK CONFIGURATION (galveston, joplin, slc removed)
 # ----------------------------------------------------------------------
-playbooks:
-  slc:
-    enabled: true
-    image:
-      repository: playbook/slc
-      tag: 0.3.2
-    replicas: 1
-  joplin:
-    enabled: true
-    image:
-      repository: playbook/joplin
-      tag: 0.2.2
-    replicas: 1
-  galveston:
-    enabled: true
-    image:
-      repository: playbook/galveston
-      tag: 0.2.2
-    replicas: 1
+playbooks: {}
 
 # ----------------------------------------------------------------------
 # DATAWOLF CONFIGURATION
@@ -529,24 +478,6 @@ datawolf:
 
   ingress:
     enabled: false
-
-# ----------------------------------------------------------------------
-# Maestro usersync configuration
-# ----------------------------------------------------------------------
-maestro_usersync:
-  image:
-    repository: maestro-usersync
-    tag: 1.0.0
-  env:
-    REALM: "In-core"
-    SERVER_BASE_URL: "url"
-    TOKEN_URL: "url"
-    ADMIN_USERNAME: "username"
-    ADMIN_PASSWORD: "password"
-    SLC_GROUP_ID: "slc_id"
-    JOPLIN_GROUP_ID: "joplin_id"
-    GALVESTON_GROUP_ID: "galveston_id"
-    NCSA_DEVELOPER_LIST: "developers"
 
 # ----------------------------------------------------------------------
 # DEPENDENCIES CONFIGURATION

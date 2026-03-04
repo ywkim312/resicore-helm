@@ -1,87 +1,78 @@
-# IN-CORE
+# IN-CORE (resicore-helm)
 
-[IN-CORE](https://incore.ncsa.illinois.edu/), run your scientific analyses that model the impact of natural hazards on a
-community and the resilience of those communities.
+[IN-CORE](https://incore.ncsa.illinois.edu/) enables scientific analyses that model the impact of natural hazards on communities and their resilience. This platform runs on Kubernetes with Docker containers.
 
-The National Institute of Standards and Technology (NIST) funded the multi-university five-year Center of Excellence for
-Risk-Based Community Resilience Planning (CoE), headquartered at Colorado State University, to develop the measurement 
-science to support community resilience assessment. Measurement science is implemented on a platform called
-Interdependent Networked Community Resilience Modeling Environment (IN-CORE). On IN-CORE, users can run scientific
-analyses that model the impact of natural hazards and resiliency against the impact on communities. The IN-CORE
-platform is built on a Kubernetes cluster with Docker container technology.
+## Forking / Origin
 
-## TL;DR;
+This repository (**resicore-helm**) was forked from [incore-helm](https://github.com/IN-CORE/incore-helm). It is configured for deployment on the resicore.ai MicroK8s cluster.
+
+| Values File | Purpose |
+|-------------|---------|
+| `values-resicore-ai.yaml` | Main IN-CORE stack (MongoDB, Keycloak, DataWolf, services, playbooks) |
+| `values-jupyterhub-resicore-ai.yaml` | JupyterHub (incore-lab) |
+| `values-geoserver-resicore-ai.yaml` | GeoServer for spatial services |
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [DEPLOYMENT-RESICORE-AI.md](DEPLOYMENT-RESICORE-AI.md) | Full deployment guide for resicore.ai |
+| [GEOSERVER-MIGRATION.md](GEOSERVER-MIGRATION.md) | GeoServer data migration from incore-prod |
+| [ISSUE-logout-redirect.md](ISSUE-logout-redirect.md) | Logout redirect issue (frontend fix) |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+
+## Quick Start (resicore.ai)
 
 ```bash
-$ helm repo add ncsa https://opensource.ncsa.illinois.edu/charts/
-$ helm install incore ncsa/incore
+# 1. Create namespace and deploy PostgreSQL (create postgresql-values.yaml — see DEPLOYMENT-RESICORE-AI.md)
+kubectl create namespace incore --dry-run=client -o yaml | kubectl apply -f -
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install incore-postgresql bitnami/postgresql -n incore --values postgresql-values.yaml
+
+# 2. Deploy IN-CORE stack
+helm upgrade --install --namespace incore incore . --values values-resicore-ai.yaml
+
+# 3. Deploy JupyterHub (optional)
+helm upgrade --install jupyterhub jupyterhub/jupyterhub -n incore -f values-jupyterhub-resicore-ai.yaml --version 3.3.8
+
+# 4. Deploy GeoServer (optional)
+helm repo add ncsa https://opensource.ncsa.illinois.edu/charts/
+helm upgrade --install geoserver ncsa/geoserver -n incore -f values-geoserver-resicore-ai.yaml
 ```
 
-For changes see [CHANGELOG](CHANGELOG.md).
+**Prerequisites**: `regcred` secret for `hub.ncsa.illinois.edu`, cluster context `microk8s`. See [DEPLOYMENT-RESICORE-AI.md](DEPLOYMENT-RESICORE-AI.md) for details.
 
-## Introduction
+## Upstream (IN-CORE)
 
-This chart bootstraps the IN-CORE  deployment on a [Kubernetes](http://kubernetes.io) cluster using the
-[Helm](https://helm.sh) package manager.
+For the original NCSA chart:
+
+```bash
+helm repo add ncsa https://opensource.ncsa.illinois.edu/charts/
+helm install incore ncsa/incore
+```
 
 ## Prerequisites
 
 - Kubernetes 1.16+
-- helm 3
-- PV provisioner support in the underlying infrastructure
-
-## Installing the Chart
-
-To install the chart with the release name `my-release`:
-
-```bash
-$ helm install --name my-release ncsa/incore
-```
-
-The command deploys IN-CORE  on the Kubernetes cluster in the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation. This will also install MongoDB, RabbitMQ, elasticsearch as well as some extractors.
-
-> **Tip**: List all releases using `helm list`
-> **Note**: Using the jupyterhub helm chart, you can also run an instance of jupyterhub in your cluster
-
-## Uninstalling the Chart
-
-To uninstall/delete the `my-release` deployment:
-
-```bash
-$ helm delete my-release
-```
-
-The command removes all the Kubernetes components associated with the chart and deletes the release.
+- Helm 3
+- PV provisioner support (Longhorn on resicore.ai)
 
 ## Configuration
 
-Needs to be written
+See [values.yaml](values.yaml) for all options. Key parameters:
 
-The following table lists the configurable parameters of the IN-CORE chart and their default values.
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| ingress.hosts[0].host | Ingress hostname | incore.example.com |
+| ingress.traefik | Use Traefik V2 middleware | false |
 
-| Parameter                            | Description                                      | Default                                                 |
-| ------------------------------------ | ------------------------------------------------ | -------------------------------------------------------
-| ingress.hosts[0].host | ingress rule for incore  | incore.example.com
-| ingress.traefik | Use Traefik V2 middleware | false
-
-Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. Or more convenient
-use a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
-
-```bash
-$ helm install --name my-release -f values.yaml ncsa/incore
-```
-
-Since the ingress hostname is used in multiple places, it is recommended to use
-a variable in yaml to copy this information. For example:
+Use YAML anchors for hostname consistency:
 
 ```yaml
-hostname: &hostname incore-tst.ncsa.illinois.edu
-
+hostname: &hostname dev.resicore.ai
 ingress:
   hosts:
     - host: *hostname
-
-      
 keycloak:
   ingress:
     rules:
@@ -90,16 +81,6 @@ keycloak:
           - /auth/
 ```
 
-> **Tip**: You can use the default [values.yaml](values.yaml) to find the names of all options
-
 ## Persistence
 
-IN-CORE will use a persistent storage to store all data that is uploaded as well as is generated.
-
-### Existing PersistentVolumeClaims
-
-1. Create the PersistentVolume
-1. Create the PersistentVolumeClaim
-1. Install the chart
-
-For an example of using existing PVC, see the file [incore-pvc.yaml](incore-pvc.yaml).
+IN-CORE uses persistent storage for uploaded and generated data. For existing PVCs, see [incore-pvc.yaml](incore-pvc.yaml).
