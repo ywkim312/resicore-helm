@@ -42,10 +42,12 @@ echo "Phase 1 done. Copied $count from prod, $fail failed."
 
 echo ""
 echo "Phase 2: Creating tar and copying to microk8s..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORK_DIR="$(pwd)"
 cd migration-data/data
 tar czf ../data.tar.gz .
-cd ..
-echo "  Tar created ($(du -h data.tar.gz | cut -f1))"
+cd "$WORK_DIR"
+echo "  Tar created ($(du -h migration-data/data.tar.gz | cut -f1))"
 
 echo "  Copying tar to pod..."
 kubectl cp migration-data/data.tar.gz "incore/${MICROK8S_POD}:/tmp/data.tar.gz" --context microk8s
