@@ -10,6 +10,7 @@
 #   Deploy GeoServer on microk8s first (helm install) so it creates security/ with correct auth.
 # URLs: prod hostnames in XML are replaced with TARGET_HOST (default dev.resicore.ai)
 #   Override: TARGET_HOST=myhost.example.com
+#   SKIP_PHASE1=1 to resume from Phase 2 (when migration-geoserver/ already exists from a previous run)
 
 set -e
 GEO_BASE="${GEO_BASE:-/opt/geoserver_data}"
@@ -31,31 +32,35 @@ done < geoserver-dataset-ids.txt
 echo "Keep set: ${#KEEP_IDS[@]} dataset IDs (ergo/incore)"
 
 mkdir -p migration-geoserver
-rm -rf migration-geoserver/*
 
-echo ""
-echo "Phase 1: Copying full data_dir from incore-prod..."
-kubectl exec -n incore "$PROD_POD" --context incore-prod -- sh -c "cd $(dirname $GEO_BASE) && tar czf - $(basename $GEO_BASE)" 2>/dev/null | tar xzf - -C migration-geoserver --strip-components=1 2>/dev/null || {
-  # Fallback: kubectl cp the whole dir
-  kubectl cp "incore/${PROD_POD}:${GEO_BASE}" migration-geoserver/geoserver_data --context incore-prod
-  mv migration-geoserver/geoserver_data/* migration-geoserver/ 2>/dev/null || true
-  rmdir migration-geoserver/geoserver_data 2>/dev/null || true
-}
-
-echo "  Copied. Size: $(du -sh migration-geoserver | cut -f1)"
+if [[ -z "$SKIP_PHASE1" ]] || [[ "$SKIP_PHASE1" != "1" ]]; then
+  rm -rf migration-geoserver/*
+  echo ""
+  echo "Phase 1: Copying full data_dir from incore-prod..."
+  kubectl exec -n incore "$PROD_POD" --context incore-prod -- sh -c "cd $(dirname $GEO_BASE) && tar czf - $(basename $GEO_BASE)" 2>/dev/null | tar xzf - -C migration-geoserver --strip-components=1 2>/dev/null || {
+    # Fallback: kubectl cp the whole dir
+    kubectl cp "incore/${PROD_POD}:${GEO_BASE}" migration-geoserver/geoserver_data --context incore-prod
+    mv migration-geoserver/geoserver_data/* migration-geoserver/ 2>/dev/null || true
+    rmdir migration-geoserver/geoserver_data 2>/dev/null || true
+  }
+  echo "  Copied. Size: $(du -sh migration-geoserver | cut -f1)"
+else
+  echo ""
+  echo "Phase 1: SKIPPED (SKIP_PHASE1=1, using existing migration-geoserver/)"
+  echo "  Current size: $(du -sh migration-geoserver | cut -f1)"
+fi
 
 echo ""
 echo "Phase 2: Removing layer dirs NOT in ergo/incore..."
 removed=0
-# Find dirs whose name is exactly 24 hex chars (dataset ID); process deepest first
+# Find ONLY dirs whose name is exactly 24 hex chars (dataset ID) - skip iterating 100k+ dirs
 while IFS= read -r -d '' dir; do
   name=$(basename "$dir")
-  [[ "$name" =~ ^[a-f0-9]{24}$ ]] || continue
   [[ -n "${KEEP_IDS[$name]}" ]] && continue
   rm -rf "$dir"
   ((removed++)) || true
-  [[ $((removed % 50)) -eq 0 ]] && [[ $removed -gt 0 ]] && echo "  Removed $removed layers..."
-done < <(find migration-geoserver -type d -print0 | sort -zr)
+  [[ $((removed % 100)) -eq 0 ]] && [[ $removed -gt 0 ]] && echo "  Removed $removed layers..."
+done < <(find migration-geoserver -type d -regextype posix-extended -regex '.*/[a-f0-9]{24}$' -print0 2>/dev/null)
 
 echo "  Removed $removed layer dirs (not in ergo/incore). Remaining size: $(du -sh migration-geoserver | cut -f1)"
 
