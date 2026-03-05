@@ -165,6 +165,19 @@ kubectl rollout restart deployment/incore-datawolf -n incore
 
 **Databases**: spacedb, semanticsdb, projectdb, maestrodb, hazarddb, dfr3db, datadb, commondb
 
+### HazardViewer PREVIEW 404
+
+If HazardViewer PREVIEW returns 404, the hazard references a dataset that is missing from datadb. Restore from incore-prod using scripts in `resicore-docs/`:
+
+```bash
+cd resicore-docs
+export PROD_PWD="<incore-prod-mongodb-password>"
+./export-missing-hazard-datasets-from-prod.sh
+./restore-missing-hazard-datasets-to-microk8s.sh
+```
+
+See `resicore-docs/RESTORE-MISSING-HAZARD-DATASETS.md` for details. If PREVIEW still fails after restore, the dataset file data may need to be copied from prod (see MIGRATE-DATA-incore-prod-to-microk8s.md).
+
 ## Troubleshooting
 
 ### Common Commands
