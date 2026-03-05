@@ -15,12 +15,11 @@ This repository (**resicore-helm**) was forked from [incore-helm](https://github
 ## Quick Start (resicore.ai)
 
 ```bash
-# 1. Create namespace and deploy PostgreSQL (create postgresql-values.yaml — see DEPLOYMENT-RESICORE-AI.md)
+# 1. Create namespace
 kubectl create namespace incore --dry-run=client -o yaml | kubectl apply -f -
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm install incore-postgresql bitnami/postgresql -n incore --values postgresql-values.yaml
 
-# 2. Deploy IN-CORE stack
+# 2. Deploy IN-CORE stack (includes PostgreSQL, MongoDB, Keycloak, DataWolf, services)
+helm dep build
 helm upgrade --install --namespace incore incore . --values values-resicore-ai.yaml
 
 # 3. Deploy GeoServer
@@ -28,7 +27,7 @@ helm repo add ncsa https://opensource.ncsa.illinois.edu/charts/
 helm upgrade --install geoserver ncsa/geoserver -n incore -f values-geoserver-resicore-ai.yaml
 ```
 
-**Prerequisites**: `regcred` secret for `hub.ncsa.illinois.edu`, cluster context `microk8s`.
+**Prerequisites**: `regcred` secret for `hub.ncsa.illinois.edu`, cluster context `microk8s`. See [DEPLOYMENT-RESICORE-AI.md](DEPLOYMENT-RESICORE-AI.md) for full deployment guide.
 
 ## Upstream (IN-CORE)
 
