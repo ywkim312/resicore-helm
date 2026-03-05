@@ -9,17 +9,8 @@ This repository (**resicore-helm**) was forked from [incore-helm](https://github
 | Values File | Purpose |
 |-------------|---------|
 | `values-resicore-ai.yaml` | Main IN-CORE stack (MongoDB, Keycloak, DataWolf, services, playbooks) |
-| `values-jupyterhub-resicore-ai.yaml` | JupyterHub (incore-lab) |
 | `values-geoserver-resicore-ai.yaml` | GeoServer for spatial services |
 
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [DEPLOYMENT-RESICORE-AI.md](DEPLOYMENT-RESICORE-AI.md) | Full deployment guide for resicore.ai |
-| [GEOSERVER-MIGRATION.md](GEOSERVER-MIGRATION.md) | GeoServer data migration from incore-prod |
-| [ISSUE-logout-redirect.md](ISSUE-logout-redirect.md) | Logout redirect issue (frontend fix) |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
 
 ## Quick Start (resicore.ai)
 
@@ -32,15 +23,12 @@ helm install incore-postgresql bitnami/postgresql -n incore --values postgresql-
 # 2. Deploy IN-CORE stack
 helm upgrade --install --namespace incore incore . --values values-resicore-ai.yaml
 
-# 3. Deploy JupyterHub (optional)
-helm upgrade --install jupyterhub jupyterhub/jupyterhub -n incore -f values-jupyterhub-resicore-ai.yaml --version 3.3.8
-
-# 4. Deploy GeoServer (optional)
+# 3. Deploy GeoServer
 helm repo add ncsa https://opensource.ncsa.illinois.edu/charts/
 helm upgrade --install geoserver ncsa/geoserver -n incore -f values-geoserver-resicore-ai.yaml
 ```
 
-**Prerequisites**: `regcred` secret for `hub.ncsa.illinois.edu`, cluster context `microk8s`. See [DEPLOYMENT-RESICORE-AI.md](DEPLOYMENT-RESICORE-AI.md) for details.
+**Prerequisites**: `regcred` secret for `hub.ncsa.illinois.edu`, cluster context `microk8s`.
 
 ## Upstream (IN-CORE)
 

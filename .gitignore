@@ -71,3 +71,6 @@ keycloak-incore-realm.json
 regcred.json
 regcred.sh
 helm/incore/templates/secrets.yaml
+
+# resicore docs
+resicore-docs/
