@@ -155,6 +155,27 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO datawolf;
 kubectl rollout restart deployment/incore-datawolf -n incore
 ```
 
+**Studio can't load analysis list / LOBs owned by postgres**: If the database was restored from a dump, tables and Large Objects (LOBs) may be owned by `postgres` instead of `datawolf`. Change ownership:
+
+```bash
+# Replace $POSTGRES_PASSWORD with value from values-resicore-ai.yaml
+kubectl exec -it incore-postgresql-0 -n incore -- env PGPASSWORD='$POSTGRES_PASSWORD' psql -U postgres -d datawolf -c "
+REASSIGN OWNED BY postgres TO datawolf;
+"
+# For Large Objects (if REASSIGN OWNED doesn't cover them):
+kubectl exec -it incore-postgresql-0 -n incore -- env PGPASSWORD='$POSTGRES_PASSWORD' psql -U postgres -d datawolf -c "
+DO \$\$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN SELECT oid FROM pg_largeobject_metadata WHERE lomowner = (SELECT oid FROM pg_roles WHERE rolname = 'postgres')
+  LOOP
+    EXECUTE format('ALTER LARGE OBJECT %s OWNER TO datawolf', r.oid);
+  END LOOP;
+END \$\$;
+"
+kubectl rollout restart deployment/incore-datawolf -n incore
+```
+
 ### MongoDB (incore-prod → microk8s)
 
 1. Get prod password: `kubectl get secret incore-mongodb -n incore --context incore-prod -o jsonpath='{.data.mongodb-root-password}'` (decode base64)
@@ -209,7 +230,24 @@ Add `*.sql` to `.helmignore` to exclude dump files from the chart package.
 
 **Cause**: HTTP probes hit `/datawolf/persons`, which returns 900+ person records. The response is large; the kubelet closes the connection before DataWolf finishes sending it, causing "Connection reset by peer" and "Response is committed, can't handle exception".
 
-**Fix**: Use TCP probes instead of HTTP. `values-resicore-ai.yaml` includes `livenessProbe` and `readinessProbe` overrides for DataWolf using `tcpSocket`—they only check that the port is open, with no HTTP request/response.
+**Fix**: Use TCP probes instead of HTTP. The DataWolf subchart uses hardcoded HTTP probes; apply this patch to switch to TCP probes:
+
+```bash
+kubectl patch deployment incore-datawolf -n incore --type='json' -p='[
+  {"op": "replace", "path": "/spec/template/spec/containers/0/livenessProbe", "value": {"tcpSocket": {"port": "http"}, "initialDelaySeconds": 60, "periodSeconds": 30, "timeoutSeconds": 5, "failureThreshold": 3}},
+  {"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe", "value": {"tcpSocket": {"port": "http"}, "initialDelaySeconds": 30, "periodSeconds": 15, "timeoutSeconds": 5, "failureThreshold": 3}}
+]'
+```
+
+### DataWolf: INCORE_GROUP for user datasets
+
+**Cause**: DataWolf needs `INCORE_GROUP=incore_admin` to read datasets in user spaces (e.g., outputs from previous workflow steps). The default `incore_user` may not have access.
+
+**Fix**: `values-resicore-ai.yaml` sets this via `datawolf.extraEnvVars`. If you need to apply it manually:
+
+```bash
+kubectl set env deployment/incore-datawolf -n incore INCORE_GROUP=incore_admin
+```
 
 ### Keycloak: "no available server"
 
