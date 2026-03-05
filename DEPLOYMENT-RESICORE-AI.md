@@ -41,11 +41,11 @@ Deployment guide for IN-CORE on the resicore.ai MicroK8s cluster (domain: `dev.r
 
 **PostgreSQL**
 - Host: `incore-postgresql-hl.incore.svc.cluster.local`
-- Port: `5432` | User: `postgres` | Password: `PostgresAI2026$!`
+- Port: `5432` | User: `postgres` | Password: see `values-resicore-ai.yaml`
 
 **MongoDB**
 - Host: `incore-mongodb.incore.svc.cluster.local`
-- Port: `27017` | User: `root` | Password: `ResicoreMongoAI2026$!`
+- Port: `27017` | User: `root` | Password: see `values-resicore-ai.yaml`
 - Port-forward: `kubectl port-forward -n incore svc/incore-mongodb 27017:27017 --context microk8s`
 
 **User Approval (incore-approval)**
@@ -97,7 +97,7 @@ helm upgrade --install --namespace incore incore . --values values-resicore-ai.y
 
 Deploys: PostgreSQL, MongoDB, Keycloak, DataWolf, services, playbooks. PostgreSQL is included as a subchart (databases: datawolf, maestro_*). Keycloak uses dev-file database (not PostgreSQL). For database migrations from incore-prod, see [Database Migrations](#database-migrations).
 
-**Verify PostgreSQL**: `kubectl exec incore-postgresql-0 -n incore -- env PGPASSWORD='PostgresAI2026$!' psql -U postgres -c "\l"`
+**Verify PostgreSQL**: `kubectl exec incore-postgresql-0 -n incore -- env PGPASSWORD='$POSTGRES_PASSWORD' psql -U postgres -c "\l"`
 
 ---
 
@@ -106,7 +106,7 @@ Deploys: PostgreSQL, MongoDB, Keycloak, DataWolf, services, playbooks. PostgreSQ
 **Config**: `values-geoserver-resicore-ai.yaml`
 
 - Image: `hub.ncsa.illinois.edu/incore/geoserver:2.26.1-netcdf`
-- Admin: admin / GeoServerResicore2026$!
+- Admin: see `values-geoserver-resicore-ai.yaml`
 - Protected by incore-auth (Keycloak login required)
 
 ```bash
@@ -132,28 +132,21 @@ Traefik forwardAuth middleware validates Keycloak JWT tokens. Protected resource
 traefik.ingress.kubernetes.io/router.middlewares: incore-auth@kubernetescrd
 ```
 
-### Logout Not Synchronized (Known Issue)
-
-Logging out from the home page does not log out the data viewer or other tools. Each app stores its own token; incore-auth does not check Keycloak session status.
-
-**Fix** (requires app changes): Redirect to Keycloak logout endpoint, configure post-logout URIs in Keycloak. See [ISSUE-logout-redirect.md](ISSUE-logout-redirect.md).
-
----
-
 ## Database Migrations
 
 ### DataWolf PostgreSQL Password
 
-resicore-ai uses `DataWolfResicore2026` (incore-prod uses `datawolf`). If database was imported from incore-prod:
+resicore-ai uses a different DataWolf password than incore-prod. If database was imported from incore-prod, update the password to match `values-resicore-ai.yaml`:
 
 ```bash
-kubectl exec -it incore-postgresql-0 -n incore -- env PGPASSWORD='PostgresAI2026$!' psql -U postgres -d datawolf -c "ALTER USER datawolf WITH PASSWORD 'DataWolfResicore2026';"
+# Replace $POSTGRES_PASSWORD and <DATAWOLF_PASSWORD> with values from values-resicore-ai.yaml
+kubectl exec -it incore-postgresql-0 -n incore -- env PGPASSWORD='$POSTGRES_PASSWORD' psql -U postgres -d datawolf -c "ALTER USER datawolf WITH PASSWORD '<DATAWOLF_PASSWORD>';"
 kubectl rollout restart deployment/incore-datawolf -n incore
 ```
 
 **Permission denied for table**: Grant access:
 ```bash
-kubectl exec incore-postgresql-0 -n incore -- env PGPASSWORD='PostgresAI2026$!' psql -U postgres -d datawolf -c "
+kubectl exec incore-postgresql-0 -n incore -- env PGPASSWORD='$POSTGRES_PASSWORD' psql -U postgres -d datawolf -c "
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO datawolf;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO datawolf;
 GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO datawolf;
@@ -167,22 +160,10 @@ kubectl rollout restart deployment/incore-datawolf -n incore
 1. Get prod password: `kubectl get secret incore-mongodb -n incore --context incore-prod -o jsonpath='{.data.mongodb-root-password}'` (decode base64)
 2. Dump: `kubectl exec incore-mongodb-0 -n incore --context incore-prod -- mongodump --db=DBNAME -u root -p $PROD_PWD --authenticationDatabase admin --archive=/tmp/DBNAME.dump`
 3. Copy: `kubectl cp incore/incore-mongodb-0:/tmp/DBNAME.dump ./DBNAME.dump --context incore-prod` then `kubectl cp ./DBNAME.dump incore/incore-mongodb-0:/tmp/DBNAME.dump --context microk8s`
-4. Restore: `kubectl exec incore-mongodb-0 -n incore --context microk8s -- mongorestore --archive=/tmp/DBNAME.dump -u root -p 'ResicoreMongoAI2026$!' --authenticationDatabase admin --db=DBNAME`
+4. Restore: `kubectl exec incore-mongodb-0 -n incore --context microk8s -- mongorestore --archive=/tmp/DBNAME.dump -u root -p '$MONGODB_PASSWORD' --authenticationDatabase admin --db=DBNAME`
 5. Clean up dumps
 
 **Databases**: spacedb, semanticsdb, projectdb, maestrodb, hazarddb, dfr3db, datadb, commondb
-
-### PostgreSQL Maestro (incore-prod → microk8s)
-
-Maestro databases are created empty. To migrate `maestro_galveston`, `maestro_joplin`, `maestro_slc`:
-
-1. Get prod password from `incore-postgresql` secret
-2. Dump: `kubectl exec incore-postgresql-0 -n incore --context incore-prod -- env PGPASSWORD="$PROD_PWD" pg_dump -U postgres -Fc DBNAME -f /tmp/DBNAME.dump`
-3. Copy between clusters
-4. Restore: `kubectl exec incore-postgresql-0 -n incore --context microk8s -- env PGPASSWORD='PostgresAI2026$!' pg_restore -U postgres -d DBNAME --no-owner --clean --if-exists /tmp/DBNAME.dump`
-5. Grant maestro: `GRANT ALL PRIVILEGES ON ALL TABLES/SEQUENCES/FUNCTIONS IN SCHEMA public TO maestro;`
-
----
 
 ## Troubleshooting
 
@@ -193,7 +174,7 @@ kubectl get pods -n incore
 kubectl get svc -n incore
 kubectl get pvc -n incore
 kubectl get ingress -n incore
-kubectl exec incore-postgresql-0 -- env PGPASSWORD='PostgresAI2026$!' psql -U postgres -c "SELECT version();"
+kubectl exec incore-postgresql-0 -- env PGPASSWORD='$POSTGRES_PASSWORD' psql -U postgres -c "SELECT version();"
 ```
 
 ### Log Access
@@ -277,7 +258,7 @@ postgresql:
     repository: bitnamilegacy/postgresql
     tag: "16.4.0"
   auth:
-    postgresPassword: PostgresAI2026$!
+    postgresPassword: <set in values-resicore-ai.yaml>
   primary:
     persistence:
       enabled: true
@@ -287,13 +268,13 @@ postgresql:
         # keycloak.sql: commented out (Keycloak uses dev-file DB)
         datawolf.sql: |
           CREATE DATABASE datawolf;
-          CREATE USER datawolf WITH PASSWORD 'DataWolfResicore2026';
+          CREATE USER datawolf WITH PASSWORD '<datawolf password>';
           GRANT ALL PRIVILEGES ON DATABASE datawolf TO datawolf;
         maestro.sql: |
           CREATE DATABASE maestro_galveston;
           CREATE DATABASE maestro_joplin;
           CREATE DATABASE maestro_slc;
-          CREATE USER maestro WITH PASSWORD 'maestro';
+          CREATE USER maestro WITH PASSWORD '<maestro password>';
           GRANT ALL PRIVILEGES ON DATABASE maestro_galveston TO maestro;
           GRANT ALL PRIVILEGES ON DATABASE maestro_joplin TO maestro;
           GRANT ALL PRIVILEGES ON DATABASE maestro_slc TO maestro;
@@ -306,7 +287,7 @@ postgresql:
 
 ## Notes
 
-- Passwords configured for demo/test
+- Passwords configured in values files (do not commit secrets)
 - Storage: Longhorn, automatic provisioning
 - HTTPS: cert-manager + Let's Encrypt
 - Services: 1 replica each (scaled down)
