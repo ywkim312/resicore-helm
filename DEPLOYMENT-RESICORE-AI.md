@@ -48,12 +48,6 @@ Deployment guide for IN-CORE on the resicore.ai MicroK8s cluster (domain: `dev.r
 - Port: `27017` | User: `root` | Password: see `values-resicore-ai.yaml`
 - Port-forward: `kubectl port-forward -n incore svc/incore-mongodb 27017:27017 --context microk8s`
 
-**User Approval (incore-approval)**
-- **ADMIN_LIST** (approval recipients): `admin@resicore.ai` — admins who receive new-user approval requests
-- **EMAIL_FROM**: `no-reply@resicore.ai`
-- **New User Alert** (cronjob): `EMAIL_RECIPIENTS: admin@resicore.ai`
-- Configured in `values-resicore-ai.yaml` under `approval` and `cronjob.keycloak.new_user_alert`
-
 ### Infrastructure (Pre-configured)
 
 - **DNS**: `dev.resicore.ai` → `172.93.109.158`, `172.93.109.160`, `172.93.109.161` (Cloudflare DNS-only)

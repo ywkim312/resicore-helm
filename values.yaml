@@ -595,38 +595,4 @@ keycloak:
       mountPath: /opt/bitnami/keycloak/themes/incore-theme
     
 
-# ----------------------------------------------------------------------
-# APPROVAL APP CONFIGURATION
-# ----------------------------------------------------------------------
-approval:
-  replicaCount: 1
-  image:
-    repository: approval-app
-    tag: master
-  service:
-    type: ClusterIP
-    port: 5000
-  ingress:
-    annotations:
-  ADMIN_LIST: admin1@illinois.edu,admin2@illinois.edu
-  KEYCLOAK_USERNAME: keycloak
-  EMAIL_FROM: no-reply@illinois.edu
-  SMTP_SERVER: smtp.server.name
-  SMTP_PORT: 25
 
-# ----------------------------------------------------------------------
-# CRONJOBS
-# ----------------------------------------------------------------------
-cronjob:
-  keycloak:
-    new_user_alert:
-        image:
-            repository: new-user-alert
-            tag: 0.1.0
-        env:
-          SMTP_SERVER: smtp_server_name
-          SMTP_PORT: 25
-          EMAIL_SUBJECT: "IN-CORE New User Alert"
-          EMAIL_RECIPIENTS: ""
-          EMAIL_FROM: ""
-          EMAIL_BODY: "A new user has been created in IN-CORE"

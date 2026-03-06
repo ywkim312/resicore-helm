@@ -72,7 +72,3 @@ Support:
 - Postgresql    : {{ .Values.postgresql.image.tag | default .Subcharts.postgresql.Chart.AppVersion }}
 - Keycloak      : {{ .Values.keycloak.image.tag | default .Subcharts.keycloak.Chart.AppVersion }} 
 - MongoDB       : {{ .Values.mongodb.image.tag | default .Subcharts.mongodb.Chart.AppVersion }}
-- Approval      : {{ .Values.approval.image.tag }}
-
-Cron Job:
-- New User Alert        : {{ .Values.cronjob.keycloak.new_user_alert.image.tag }}
